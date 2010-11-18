@@ -1,0 +1,23 @@
+syntax: glob
+
+*.elc
+*.pyc
+*.db
+glob:django.wsgi
+
+syntax: regexp
+^__init__\.py$
+^manage\.py$
+^settings\.py$
+^urls\.py$
+^templates$
+^.settings$
+^\.project$
+^\.pydevproject$
+
+syntax: regexp
+^django_online_status\.egg-info$
+syntax: regexp
+^dist$
+syntax: regexp
+^build$
