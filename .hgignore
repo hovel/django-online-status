@@ -6,9 +6,9 @@ syntax: glob
 glob:django.wsgi
 
 syntax: regexp
-^__init__\.py$
 ^manage\.py$
 ^settings\.py$
+^syncdb\.py$
 ^urls\.py$
 ^templates$
 ^.settings$
@@ -17,7 +17,5 @@ syntax: regexp
 
 syntax: regexp
 ^django_online_status\.egg-info$
-syntax: regexp
 ^dist$
-syntax: regexp
 ^build$
