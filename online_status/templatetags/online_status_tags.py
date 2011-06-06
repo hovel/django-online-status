@@ -20,4 +20,7 @@ def user_status(user):
     status = status_for_user(user)
     return {'onlinestatus': status,}
 
-
+@register.inclusion_tag('online_status/user_status_tag.html')
+def user_status_tag(user):
+    status = status_for_user(user)
+    return {'onlinestatus': status,}

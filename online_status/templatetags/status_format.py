@@ -12,5 +12,12 @@ def status_format(val, arg="text"):
             return _('idle')
         else:
             return _('offline')
+    elif arg == "tag":
+        if val == 1:
+            return 'online'
+        elif val == 0:
+            return 'idle'
+        else:
+            return 'offline'
     else:
         return val
