@@ -9,6 +9,9 @@ TIME_OFFLINE = getattr(settings, 'USERS_ONLINE__TIME_OFFLINE', 60*10)
 CACHE_PREFIX_USER = getattr(settings, 'USERS_ONLINE__CACHE_PREFIX_USER', 'online_user') + '_%d'
 CACHE_USERS = getattr(settings, 'USERS_ONLINE__CACHE_USERS', 'online_users')
 
+CACHE_PREFIX_ANONYM_USER = getattr(settings, 'USERS_ONLINE__CACHE_PREFIX_ANONYM_USER', 'online_anonym_user') + '_%s'
+
+ONLY_LOGGED_USERS = getattr(settings, 'USERS_ONLINE__ONLY_LOGGED_USERS', False)
 
 class OnlineStatus(object):
     """Online status data which will be later cached"""
@@ -24,26 +27,36 @@ class OnlineStatus(object):
     def set_idle(self):
         self.status = 0        
 
-    def set_active(self):
+    def set_active(self, request):
         self.status = 1
-        self.seen = datetime.now() 
+        self.seen = datetime.now()
+        self.session = request.session.session_key #Can change if operating from multiple browsers
+        self.ip = request.META['REMOTE_ADDR'] #Can change if operating from multiple browsers
+        
+    def is_authenticated(self):
+        return self.user.is_authenticated()
         
 
 
 def refresh_user(request):
     """Sets or updates user's online status"""
-    key = CACHE_PREFIX_USER % request.user.pk
+    if request.user.is_authenticated() :
+        key = CACHE_PREFIX_USER % request.user.pk
+    elif not ONLY_LOGGED_USERS :
+        key = CACHE_PREFIX_ANONYM_USER % request.session.session_key
+    else :
+        return
     onlinestatus = cache.get(key)
     if not onlinestatus:
         onlinestatus = OnlineStatus(request)        
     else:
-        onlinestatus.set_active()
+        onlinestatus.set_active(request)
     cache.set(key, onlinestatus, TIME_OFFLINE)
     return onlinestatus
     #self.refresh_users_list(user=self.user)
     
     
-def refresh_users_list(**kwargs):
+def refresh_users_list(request, **kwargs):
     """Updates online users list and their statuses"""
     updated = kwargs.pop('updated', None)
     online_users = cache.get(CACHE_USERS)        
@@ -60,11 +73,11 @@ def refresh_users_list(**kwargs):
             user = cache.get(CACHE_PREFIX_USER % obj.user.pk)
             user.set_idle()
             cache.set(CACHE_PREFIX_USER % obj.user.pk, user, TIME_OFFLINE)
-        if obj.user == updated.user:
-            obj.set_active()
+        if obj.user == updated.user and updated.is_authenticated(): #It should never find it if it's an anonymous user, but you never know
+            obj.set_active(request)
             obj.seen = datetime.now()    
             updated_found = True
-    if not updated_found:
+    if not updated_found and updated.is_authenticated():
         online_users.append(updated)    
     cache.set(CACHE_USERS, online_users, TIME_OFFLINE)
     
