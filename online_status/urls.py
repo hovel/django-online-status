@@ -1,4 +1,9 @@
-from django.conf.urls.defaults import patterns, url
+import django
+
+if django.get_version() >= '1.6.0':
+	from django.conf.urls import *
+else:
+	from django.conf.urls.defaults import patterns, url
 
 urlpatterns = patterns('',
     url(r'^test/$', 'online_status.views.test', name="online_users_test"),
