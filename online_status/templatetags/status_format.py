@@ -3,6 +3,7 @@ from django.utils.translation import ugettext_lazy as _
 
 register = template.Library()
 
+
 @register.filter(name='status_format')
 def status_format(val, arg="text"):
     if arg == "text":
