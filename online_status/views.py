@@ -1,11 +1,11 @@
 import json
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render_to_response
 from django.template.context import RequestContext
 from online_status.status import CACHE_USERS
-from online_status.utils import encode_json
+from online_status.utils import OnlineStatusJSONEncoder
 
 
 def users(request):
@@ -14,8 +14,9 @@ def users(request):
     an ajax call or something
     """
     online_users = cache.get(CACHE_USERS)
-    return HttpResponse(json.dumps(online_users, default=encode_json),
-                        mimetype='application/javascript')
+    return JsonResponse(
+        online_users, encoder=OnlineStatusJSONEncoder, safe=False
+    )
 
 
 def example(request):

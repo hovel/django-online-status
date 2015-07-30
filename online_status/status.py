@@ -1,4 +1,4 @@
-from datetime import datetime
+from django.utils import timezone
 from django.core.cache import cache
 from django.conf import settings
 
@@ -23,7 +23,7 @@ class OnlineStatus(object):
         self.user = request.user
         # 0 - idle, 1 - active
         self.status = 1
-        self.seen = datetime.now()
+        self.seen = timezone.now()
         self.ip = request.META['REMOTE_ADDR']
         self.session = request.session.session_key
 
@@ -32,7 +32,7 @@ class OnlineStatus(object):
 
     def set_active(self, request):
         self.status = 1
-        self.seen = datetime.now()
+        self.seen = timezone.now()
         # Can change if operating from multiple browsers
         self.session = request.session.session_key
         # Can change if operating from multiple browsers
@@ -68,7 +68,7 @@ def refresh_users_list(request, **kwargs):
         online_users = []
     updated_found = False
     for obj in online_users:
-        seconds = (datetime.now() - obj.seen).seconds
+        seconds = (timezone.now() - obj.seen).seconds
         if seconds > TIME_OFFLINE:
             online_users.remove(obj)
             cache.delete(CACHE_PREFIX_USER % obj.user.pk)
@@ -81,7 +81,7 @@ def refresh_users_list(request, **kwargs):
             # but you never know
         if obj.user == updated.user and updated.is_authenticated():
             obj.set_active(request)
-            obj.seen = datetime.now()
+            obj.seen = timezone.now()
             updated_found = True
     if not updated_found and updated.is_authenticated():
         online_users.append(updated)

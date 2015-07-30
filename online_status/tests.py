@@ -7,7 +7,7 @@ from django.core.urlresolvers import reverse
 from django.test import TestCase
 from django.test.client import Client, RequestFactory
 from online_status.status import CACHE_PREFIX_USER, CACHE_USERS
-from online_status.utils import encode_json
+from online_status.utils import OnlineStatusJSONEncoder
 
 # override settings so we don't have to wait so long during tests
 settings.USERS_ONLINE__TIME_IDLE = 2
@@ -88,8 +88,10 @@ class OnlineStatusTest(TestCase):
         response = self.client.get(reverse('online_users'))
         self.assertEqual(response.status_code, 200)
         online_users = cache.get(CACHE_USERS)
-        self.assertEqual(response.content,
-                         json.dumps(online_users, default=encode_json))
+        self.assertEqual(
+            response.content,
+            json.dumps(online_users, default=OnlineStatusJSONEncoder.default)
+        )
 
     def test_templatetags(self):
         self.client.logout()
