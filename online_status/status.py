@@ -1,19 +1,6 @@
 from django.utils import timezone
 from django.core.cache import cache
-from django.conf import settings
-
-TIME_IDLE = getattr(settings, 'USERS_ONLINE__TIME_IDLE', 60 * 5)
-TIME_OFFLINE = getattr(settings, 'USERS_ONLINE__TIME_OFFLINE', 60 * 10)
-
-CACHE_PREFIX_USER = getattr(settings, 'USERS_ONLINE__CACHE_PREFIX_USER',
-                            'online_user') + '_%d'
-CACHE_USERS = getattr(settings, 'USERS_ONLINE__CACHE_USERS', 'online_users')
-
-CACHE_PREFIX_ANONYM_USER = getattr(settings,
-                                   'USERS_ONLINE__CACHE_PREFIX_ANONYM_USER',
-                                   'online_anonym_user') + '_%s'
-
-ONLY_LOGGED_USERS = getattr(settings, 'USERS_ONLINE__ONLY_LOGGED_USERS', False)
+from online_status.conf import online_status_settings as config
 
 
 class OnlineStatus(object):
@@ -45,9 +32,9 @@ class OnlineStatus(object):
 def refresh_user(request):
     """Sets or updates user's online status"""
     if request.user.is_authenticated():
-        key = CACHE_PREFIX_USER % request.user.pk
-    elif not ONLY_LOGGED_USERS:
-        key = CACHE_PREFIX_ANONYM_USER % request.session.session_key
+        key = config.CACHE_PREFIX_USER % request.user.pk
+    elif not config.ONLY_LOGGED_USERS:
+        key = config.CACHE_PREFIX_ANONYM_USER % request.session.session_key
     else:
         return
     onlinestatus = cache.get(key)
@@ -55,7 +42,7 @@ def refresh_user(request):
         onlinestatus = OnlineStatus(request)
     else:
         onlinestatus.set_active(request)
-    cache.set(key, onlinestatus, TIME_OFFLINE)
+    cache.set(key, onlinestatus, config.TIME_OFFLINE)
     return onlinestatus
     # self.refresh_users_list(user=self.user)
 
@@ -63,20 +50,21 @@ def refresh_user(request):
 def refresh_users_list(request, **kwargs):
     """Updates online users list and their statuses"""
     updated = kwargs.pop('updated', None)
-    online_users = cache.get(CACHE_USERS)
+    online_users = cache.get(config.CACHE_USERS)
     if not online_users:
         online_users = []
     updated_found = False
     for obj in online_users:
         seconds = (timezone.now() - obj.seen).seconds
-        if seconds > TIME_OFFLINE:
+        if seconds > config.TIME_OFFLINE:
             online_users.remove(obj)
-            cache.delete(CACHE_PREFIX_USER % obj.user.pk)
-        elif seconds > TIME_IDLE:
+            cache.delete(config.CACHE_PREFIX_USER % obj.user.pk)
+        elif seconds > config.TIME_IDLE:
             obj.set_idle()
-            user = cache.get(CACHE_PREFIX_USER % obj.user.pk)
+            user = cache.get(config.CACHE_PREFIX_USER % obj.user.pk)
             user.set_idle()
-            cache.set(CACHE_PREFIX_USER % obj.user.pk, user, TIME_OFFLINE)
+            cache.set(config.CACHE_PREFIX_USER % obj.user.pk, user,
+                      config.TIME_OFFLINE)
             # It should never find it if it's an anonymous user,
             # but you never know
         if obj.user == updated.user and updated.is_authenticated():
@@ -85,12 +73,12 @@ def refresh_users_list(request, **kwargs):
             updated_found = True
     if not updated_found and updated.is_authenticated():
         online_users.append(updated)
-    cache.set(CACHE_USERS, online_users, TIME_OFFLINE)
+    cache.set(config.CACHE_USERS, online_users, config.TIME_OFFLINE)
 
 
 def status_for_user(user):
     """Return status for user, duh?"""
     if user.is_authenticated():
-        key = CACHE_PREFIX_USER % user.pk
+        key = config.CACHE_PREFIX_USER % user.pk
         return cache.get(key)
     return None

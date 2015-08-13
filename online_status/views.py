@@ -1,11 +1,10 @@
-import json
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render_to_response
 from django.template.context import RequestContext
-from online_status.status import CACHE_USERS
 from online_status.utils import OnlineStatusJSONEncoder
+from online_status.conf import online_status_settings as config
 
 
 def users(request):
@@ -13,7 +12,7 @@ def users(request):
     Json of online users, useful f.ex. for refreshing a online users list via
     an ajax call or something
     """
-    online_users = cache.get(CACHE_USERS)
+    online_users = cache.get(config.CACHE_USERS)
     return JsonResponse(
         online_users, encoder=OnlineStatusJSONEncoder, safe=False
     )

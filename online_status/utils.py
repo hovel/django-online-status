@@ -1,8 +1,8 @@
-import json
+from json import JSONEncoder
 from online_status.status import OnlineStatus
 
 
-class OnlineStatusJSONEncoder(json.JSONEncoder):
+class OnlineStatusJSONEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, OnlineStatus):
             seen = obj.seen.isoformat()

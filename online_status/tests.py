@@ -1,21 +1,21 @@
 import json
 from time import sleep
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 from django.test.client import Client, RequestFactory
-from online_status.status import CACHE_PREFIX_USER, CACHE_USERS
+from django.test.utils import override_settings
+from online_status.conf import online_status_settings as config
 from online_status.utils import OnlineStatusJSONEncoder
 
+
 # override settings so we don't have to wait so long during tests
-settings.USERS_ONLINE__TIME_IDLE = 2
-settings.USERS_ONLINE__TIME_OFFLINE = 6
-
-
+@override_settings(
+    USERS_ONLINE__TIME_IDLE=2, USERS_ONLINE__TIME_OFFLINE=6,
+    USERS_ONLINE__ONLY_LOGGED_USERS=True
+)
 class OnlineStatusTest(TestCase):
-
     def setUp(self):
         self.client = Client()
         user1, created = User.objects.get_or_create(username='test1')
@@ -35,23 +35,19 @@ class OnlineStatusTest(TestCase):
         self.failUnless(login, 'Could not log in')
 
     def list_len(self, length):
-        key = CACHE_USERS
-        users = cache.get(key)
+        users = cache.get(config.CACHE_USERS)
         self.assertEqual(len(users), length)
 
     def test_middleware(self):
-        response = self.client.get(reverse('online_users_test'))
-        key = CACHE_PREFIX_USER % self.user1.pk
-        useronline = cache.get(key)
+        self.client.get(reverse('online_users_test'))
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user1.pk)
         self.assertEqual(useronline, None)
-        key = CACHE_USERS
-        users = cache.get(key)
+        users = cache.get(config.CACHE_USERS)
         self.assertEqual(users, None)
 
         self.log_in()
-        response = self.client.get(reverse('online_users_test'))
-        key = CACHE_PREFIX_USER % self.user1.pk
-        useronline = cache.get(key)
+        self.client.get(reverse('online_users_test'))
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user1.pk)
         self.assertEqual(useronline.user, self.user1)
         self.assertEqual(useronline.status, 1)
 
@@ -61,37 +57,34 @@ class OnlineStatusTest(TestCase):
         login = self.client.login(username='test2', password='test2')
         self.failUnless(login, 'Could not log in')
 
-        response = self.client.get(reverse('online_users_test'))
-        key = CACHE_PREFIX_USER % self.user2.pk
-        useronline = cache.get(key)
+        self.client.get(reverse('online_users_test'))
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user2.pk)
         self.assertEqual(useronline.user, self.user2)
         self.assertEqual(useronline.status, 1)
 
         self.list_len(2)
 
         # idle works?
-        sleep(settings.USERS_ONLINE__TIME_IDLE+1)
-        response = self.client.get(reverse('online_users_test'))
-        useronline = cache.get(CACHE_PREFIX_USER % self.user1.pk)
+        sleep(config.TIME_IDLE + 1)
+        self.client.get(reverse('online_users_test'))
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user1.pk)
         self.assertEqual(useronline.user, self.user1)
         self.assertEqual(useronline.status, 0)
         self.list_len(2)
 
         # offline works?
-        sleep(settings.USERS_ONLINE__TIME_OFFLINE+1)
-        response = self.client.get(reverse('online_users_test'))
-        useronline = cache.get(CACHE_PREFIX_USER % self.user1.pk)
+        sleep(config.TIME_OFFLINE + 1)
+        self.client.get(reverse('online_users_test'))
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user1.pk)
         self.assertEqual(useronline, None)
         self.list_len(1)
 
     def test_views(self):
         response = self.client.get(reverse('online_users'))
         self.assertEqual(response.status_code, 200)
-        online_users = cache.get(CACHE_USERS)
-        self.assertEqual(
-            response.content,
-            json.dumps(online_users, default=OnlineStatusJSONEncoder.default)
-        )
+        online_users = cache.get(config.CACHE_USERS)
+        self.assertEqual(response.content,
+                         json.dumps(online_users, cls=OnlineStatusJSONEncoder))
 
     def test_templatetags(self):
         self.client.logout()
@@ -101,12 +94,12 @@ class OnlineStatusTest(TestCase):
         self.assertTemplateUsed(response, 'online_status/example.html')
 
         # am i online?
-        useronline = cache.get(CACHE_PREFIX_USER % self.user1.pk)
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user1.pk)
         self.assertEqual(useronline.user, self.user1)
         self.assertEqual(useronline.status, 1)
 
         # is user2 online?
-        useronline = cache.get(CACHE_PREFIX_USER % self.user2.pk)
+        useronline = cache.get(config.CACHE_PREFIX_USER % self.user2.pk)
         self.assertEqual(useronline.user, self.user2)
         self.assertEqual(useronline.status, 1)
 
@@ -131,7 +124,7 @@ online</p>"""
         self.assertContains(response, html, 1, 200)
 
         # test idle
-        sleep(settings.USERS_ONLINE__TIME_IDLE+1)
+        sleep(config.TIME_IDLE + 1)
         response = self.client.get(reverse('online_users_example'))
         html = """<h1>Users online</h1>\n\n<dl class="online_users">\n
 \t<dt class="user">test2</dt><dd class="status">idle</dd>\n
@@ -140,14 +133,14 @@ online</p>"""
         self.assertContains(response, html, 1, 200)
 
         # test offline
-        sleep(settings.USERS_ONLINE__TIME_OFFLINE+1)
+        sleep(config.TIME_OFFLINE + 1)
         response = self.client.get(reverse('online_users_example'))
         html = """<h1>Users online</h1>\n\n<dl class="online_users">\n
 \t<dt class="user">test1</dt><dd class="status">online</dd>\n
 </dl>"""
         self.assertContains(response, html, 1, 200)
         self.client.logout()
-        sleep(settings.USERS_ONLINE__TIME_OFFLINE+1)
+        sleep(config.TIME_OFFLINE + 1)
         response = self.client.get(reverse('online_users_example'))
         html = """<h1>Users online</h1>\n\n<dl class="online_users">\n\n</dl>"""
         self.assertContains(response, html, 1, 200)

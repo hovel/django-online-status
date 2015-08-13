@@ -4,8 +4,8 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
-from online_status.status import CACHE_USERS, CACHE_PREFIX_ANONYM_USER, \
-    TIME_OFFLINE, ONLY_LOGGED_USERS, status_for_user
+from online_status.status import status_for_user
+from online_status.conf import online_status_settings as config
 
 register = template.Library()
 
@@ -13,25 +13,27 @@ register = template.Library()
 @register.inclusion_tag('online_status/online_users.html')
 def online_users(limit=None):
     """Renders a list of OnlineStatus instances"""
-    onlineusers = cache.get(CACHE_USERS)
+    onlineusers = cache.get(config.CACHE_USERS)
     onlineanonymusers = None
 
-    if not ONLY_LOGGED_USERS:
+    if not config.ONLY_LOGGED_USERS:
         now = timezone.now()
 
-        expire_delta = timedelta(0, settings.SESSION_COOKIE_AGE - TIME_OFFLINE)
+        expire_delta = timedelta(
+            0, settings.SESSION_COOKIE_AGE - config.TIME_OFFLINE
+        )
         sessions = Session.objects.filter(
             expire_date__gte=now + expire_delta
         ).values_list('session_key', flat=True)
 
         onlineanonymusers = filter(
             lambda x: x is not None,
-            [cache.get(CACHE_PREFIX_ANONYM_USER % session_key, None)
+            [cache.get(config.CACHE_PREFIX_ANONYM_USER % session_key, None)
              for session_key in sessions]
         )
 
         onlineusers = [item
-                       for item in cache.get(CACHE_USERS, [])
+                       for item in cache.get(config.CACHE_USERS, [])
                        if item.status in (0, 1) and item.session in sessions]
 
         if onlineanonymusers and limit:
