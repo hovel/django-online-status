@@ -25,9 +25,6 @@ class OnlineStatus(object):
         # Can change if operating from multiple browsers
         self.ip = request.META['REMOTE_ADDR']
 
-    def is_authenticated(self):
-        return self.user.is_authenticated()
-
 
 def refresh_user(request):
     """Sets or updates user's online status"""
@@ -49,30 +46,39 @@ def refresh_user(request):
 
 def refresh_users_list(request, **kwargs):
     """Updates online users list and their statuses"""
+
+    online_users = cache.get(config.CACHE_USERS) or []
     updated = kwargs.pop('updated', None)
-    online_users = cache.get(config.CACHE_USERS)
-    if not online_users:
-        online_users = []
-    updated_found = False
-    for obj in online_users:
-        seconds = (timezone.now() - obj.seen).seconds
+
+    for online_status in online_users:
+        seconds = (timezone.now() - online_status.seen).seconds
+
+        if online_status.user == updated.user:
+            online_users.remove(online_status)
+            # don't delete user status from cache, because it's already updated
+            continue
+
         if seconds > config.TIME_OFFLINE:
-            online_users.remove(obj)
-            cache.delete(config.CACHE_PREFIX_USER % obj.user.pk)
-        elif seconds > config.TIME_IDLE:
-            obj.set_idle()
-            user = cache.get(config.CACHE_PREFIX_USER % obj.user.pk)
-            user.set_idle()
-            cache.set(config.CACHE_PREFIX_USER % obj.user.pk, user,
-                      config.TIME_OFFLINE)
-            # It should never find it if it's an anonymous user,
-            # but you never know
-        if obj.user == updated.user and updated.is_authenticated():
-            obj.set_active(request)
-            obj.seen = timezone.now()
-            updated_found = True
-    if not updated_found and updated.is_authenticated():
+            online_users.remove(online_status)
+            cache.delete(config.CACHE_PREFIX_USER % online_status.user.pk)
+            continue
+
+        if seconds > config.TIME_IDLE:
+            user_status = cache.get(config.CACHE_PREFIX_USER %
+                                    online_status.user.pk)
+            if not user_status:
+                online_users.remove(online_status)
+                # user status already deleted from cache
+                continue
+
+            online_status.set_idle()
+            user_status.set_idle()
+            cache.set(config.CACHE_PREFIX_USER % online_status.user.pk,
+                      user_status, config.TIME_OFFLINE)
+
+    if updated.user.is_authenticated():
         online_users.append(updated)
+
     cache.set(config.CACHE_USERS, online_users, config.TIME_OFFLINE)
 
 
