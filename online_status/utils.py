@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 from json import JSONEncoder
 from online_status.status import OnlineStatus
 

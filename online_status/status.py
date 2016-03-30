@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 from django.utils import timezone
 from django.core.cache import cache
 from online_status.conf import online_status_settings as config

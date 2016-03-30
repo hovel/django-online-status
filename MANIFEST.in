@@ -1,0 +1,5 @@
+recursive-include online_status/templates *
+recursive-include online_status/locale *
+include AUTHORS
+include README
+include UNLICENSE

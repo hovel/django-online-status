@@ -1,0 +1,11 @@
+sudo: false
+language: python
+python:
+  - "3.4"
+env:
+  - TOXENV="py27-django18"
+  - TOXENV="py27-django19"
+  - TOXENV="py34-django18"
+  - TOXENV="py34-django19"
+install: pip install tox
+script: tox -e $TOXENV
