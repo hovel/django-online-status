@@ -47,34 +47,32 @@ def refresh_user(request):
 def refresh_users_list(request, **kwargs):
     """Updates online users list and their statuses"""
 
-    online_users = cache.get(config.CACHE_USERS) or []
     updated = kwargs.pop('updated', None)
+    online_users = []
 
-    for online_status in online_users:
+    for online_status in cache.get(config.CACHE_USERS, []):
         seconds = (timezone.now() - online_status.seen).seconds
 
+        # `updated` will be added into `online_users` later
         if online_status.user == updated.user:
-            online_users.remove(online_status)
-            # don't delete user status from cache, because it's already updated
             continue
 
+        # delete expired
         if seconds > config.TIME_OFFLINE:
-            online_users.remove(online_status)
             cache.delete(config.CACHE_PREFIX_USER % online_status.user.pk)
             continue
 
         if seconds > config.TIME_IDLE:
-            user_status = cache.get(config.CACHE_PREFIX_USER %
-                                    online_status.user.pk)
-            if not user_status:
-                online_users.remove(online_status)
-                # user status already deleted from cache
-                continue
-
+            # default value will be used if the second cache is expired
+            user_status = cache.get(
+                config.CACHE_PREFIX_USER % online_status.user.pk,
+                online_status)
             online_status.set_idle()
             user_status.set_idle()
             cache.set(config.CACHE_PREFIX_USER % online_status.user.pk,
                       user_status, config.TIME_OFFLINE)
+
+        online_users.append(online_status)
 
     if updated.user.is_authenticated():
         online_users.append(updated)
