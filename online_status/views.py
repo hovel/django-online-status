@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render_to_response
+from django.shortcuts import render
 from django.template.context import RequestContext
 from online_status.utils import OnlineStatusJSONEncoder
 from online_status.conf import online_status_settings as config
@@ -22,9 +22,8 @@ def example(request):
     """Example view where you can see templatetags in action"""
     User = get_user_model()
     user, created = User.objects.get_or_create(username='example')
-    return render_to_response('online_status/example.html',
-                              {'example_user': user, },
-                              context_instance=RequestContext(request))
+    return render(
+        request, 'online_status/example.html', context={'example_user': user})
 
 
 def test(request):
